@@ -38,6 +38,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @WebAppConfiguration
 public class ExampleControllerTest {
 
+    public static final String CORRECT_JSON = "{\"result\":{\"string\":\"stringValue\", \"array\":[1, 2, 3]}}";
     @Autowired
     private WebApplicationContext wac;
 
@@ -50,33 +51,94 @@ public class ExampleControllerTest {
 
     @Test
     public void shouldPassIfEquals() throws Exception {
-        exec()
-            .andExpect(json().isEqualTo("{\"result\":{\"string\":\"stringValue\"}}"));
+        exec().andExpect(json().isEqualTo(CORRECT_JSON));
     }
 
     @Test
-    public void shouldFailIfDoesNotEqual() throws Exception {
+    public void isEqualToShouldFailIfDoesNotEqual() throws Exception {
         try {
             exec()
-                .andExpect(json().isEqualTo("{\"result\":{\"string\":\"stringValue2\"}}"));
+                .andExpect(json().isEqualTo(CORRECT_JSON.replace("stringValue", "stringValue2")));
             doFail();
         } catch (AssertionError e) {
-            assertEquals(e.getMessage(),
+            assertEquals(
                 "JSON documents are different:\n" +
-                "Different value found in node \"result.string\". Expected \"stringValue2\", got \"stringValue\".\n");
+                    "Different value found in node \"result.string\". Expected \"stringValue2\", got \"stringValue\".\n",
+                e.getMessage());
         }
     }
 
     @Test
-    public void shouldFailIfNodeDoesNotEqual() throws Exception {
+    public void isAbsentShouldFailIfNodeExists() throws Exception {
         try {
             exec()
-                .andExpect(json().node("result").isEqualTo("{\"string\":\"stringValue2\"}"));
+                .andExpect(json().node("result.string").isAbsent());
             doFail();
         } catch (AssertionError e) {
-            assertEquals(e.getMessage(),
-                "JSON documents are different:\n" +
-                "Different value found in node \"result.string\". Expected \"stringValue2\", got \"stringValue\".\n");
+            assertEquals("Node \"result.string\" is present.", e.getMessage());
+        }
+    }
+
+
+    @Test
+    public void isAbsentShouldPassIfNodeIsAbsent() throws Exception {
+        exec().andExpect(json().node("result.string2").isAbsent());
+    }
+
+    @Test
+    public void isPresentShouldFailIfNodeIsAbsent() throws Exception {
+        try {
+            exec()
+                .andExpect(json().node("result.string2").isPresent());
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("Node \"result.string2\" is missing.", e.getMessage());
+        }
+    }
+
+    @Test
+    public void isPresentShouldPassIfPresent() throws Exception {
+        exec().andExpect(json().node("result.string").isPresent());
+    }
+
+    @Test
+    public void isArrayShouldFailOnNotArray() throws Exception {
+        try {
+            exec()
+                .andExpect(json().node("result.string").isArray());
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("Node \"result.string\" is not an array. The actual value is '\"stringValue\"'.", e.getMessage());
+        }
+    }
+
+    @Test
+    public void isArrayShouldPassOnArray() throws Exception {
+        exec().andExpect(json().node("result.array").isArray());
+    }
+
+    @Test
+    public void isNotEqualToShouldFailIfEquals() throws Exception {
+        try {
+            exec()
+                .andExpect(json().isNotEqualTo(CORRECT_JSON));
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals(
+                "JSON is equal.", e.getMessage());
+        }
+    }
+
+    @Test
+    public void isEqualToShouldFailIfNodeDoesNotEqual() throws Exception {
+        try {
+            exec()
+                .andExpect(json().node("result.string").isEqualTo("stringValue2"));
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("JSON documents are different:\n" +
+                    "Different value found in node \"result.string\". Expected \"stringValue2\", got \"stringValue\".\n",
+                e.getMessage());
         }
     }
 

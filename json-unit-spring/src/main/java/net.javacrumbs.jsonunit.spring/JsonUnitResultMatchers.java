@@ -17,13 +17,18 @@ package net.javacrumbs.jsonunit.spring;
 
 import net.javacrumbs.jsonunit.core.Configuration;
 import net.javacrumbs.jsonunit.core.internal.Diff;
+import net.javacrumbs.jsonunit.core.internal.Node;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultMatcher;
 
 import static net.javacrumbs.jsonunit.core.internal.Diff.create;
+import static net.javacrumbs.jsonunit.core.internal.JsonUtils.getNode;
+import static net.javacrumbs.jsonunit.core.internal.JsonUtils.nodeExists;
+import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.ARRAY;
 
 public class JsonUnitResultMatchers {
     private final String path;
+    private final Configuration configuration = Configuration.empty();
 
     private JsonUnitResultMatchers(String path) {
         this.path = path;
@@ -38,17 +43,101 @@ public class JsonUnitResultMatchers {
     }
 
     public ResultMatcher isEqualTo(final Object expected) {
-        return new ResultMatcher() {
-            public void match(MvcResult result) throws Exception {
-                Diff diff =  create(expected, result.getResponse().getContentAsString(), "actual", path, Configuration.empty());
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                Diff diff = createDiff(expected, actual);
                 if (!diff.similar()) {
-                        failWithMessage(diff.differences());
+                    failWithMessage(diff.differences());
                 }
             }
         };
     }
 
+    public ResultMatcher isNotEqualTo(final String expected) {
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                Diff diff = createDiff(expected, actual);
+                if (diff.similar()) {
+                    failWithMessage("JSON is equal.");
+                }
+            }
+        };
+    }
+
+    /**
+     * Fails if the node exists.
+     *
+     * @return
+     */
+    public ResultMatcher isAbsent() {
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                if (nodeExists(actual, path)) {
+                    failWithMessage("Node \"" + path + "\" is present.");
+                }
+            }
+        };
+    }
+
+    /**
+     * Fails if the node is missing.
+     */
+    public ResultMatcher isPresent() {
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                if (!nodeExists(actual, path)) {
+                    failWithMessage("Node \"" + path + "\" is missing.");
+                }
+            }
+        };
+    }
+
+
+    /**
+     * Fails if the selected JSON is not an Array or is not present.
+     *
+     * @return
+     */
+    public ResultMatcher isArray() {
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                isPresent();
+                Node node = getNode(actual, path);
+                if (node.getNodeType() != ARRAY) {
+                    failOnType(node, "an array");
+                }
+            }
+        };
+    }
+
+    private void failOnType(Node node, final String type) {
+        failWithMessage("Node \"" + path + "\" is not " + type + ". The actual value is '" + node + "'.");
+    }
+
     private void failWithMessage(String message) {
         throw new AssertionError(message);
     }
+
+    private static abstract class AbstractResultMatcher implements ResultMatcher {
+        private final String path;
+        private final Configuration configuration;
+
+        protected AbstractResultMatcher(String path, Configuration configuration) {
+            this.path = path;
+            this.configuration = configuration;
+        }
+
+        public void match(MvcResult result) throws Exception {
+            Object actual = result.getResponse().getContentAsString();
+            doMatch(actual);
+        }
+
+        protected Diff createDiff(Object expected, Object actual) {
+            return create(expected, actual, "actual", path, configuration);
+        }
+
+        protected abstract void doMatch(Object actual);
+    }
+
+
 }

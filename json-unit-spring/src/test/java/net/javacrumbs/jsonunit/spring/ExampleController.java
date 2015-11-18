@@ -35,5 +35,8 @@ public class ExampleController {
         public String getString() {
             return "stringValue";
         }
+        public int[] getArray() {
+            return new int[]{1, 2, 3};
+        }
     }
 }
