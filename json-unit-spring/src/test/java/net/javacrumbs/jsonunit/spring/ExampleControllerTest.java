@@ -24,12 +24,14 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import static net.javacrumbs.jsonunit.spring.JsonUnitResultMatchers.json;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = {SpringConfig.class})
@@ -47,10 +49,43 @@ public class ExampleControllerTest {
     }
 
     @Test
-    public void getAccount() throws Exception {
-        this.mockMvc.perform(get("/sample").accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType("application/json"));
+    public void shouldPassIfEquals() throws Exception {
+        exec()
+            .andExpect(json().isEqualTo("{\"result\":{\"string\":\"stringValue\"}}"));
+    }
+
+    @Test
+    public void shouldFailIfDoesNotEqual() throws Exception {
+        try {
+            exec()
+                .andExpect(json().isEqualTo("{\"result\":{\"string\":\"stringValue2\"}}"));
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals(e.getMessage(),
+                "JSON documents are different:\n" +
+                "Different value found in node \"result.string\". Expected \"stringValue2\", got \"stringValue\".\n");
+        }
+    }
+
+    @Test
+    public void shouldFailIfNodeDoesNotEqual() throws Exception {
+        try {
+            exec()
+                .andExpect(json().node("result").isEqualTo("{\"string\":\"stringValue2\"}"));
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals(e.getMessage(),
+                "JSON documents are different:\n" +
+                "Different value found in node \"result.string\". Expected \"stringValue2\", got \"stringValue\".\n");
+        }
+    }
+
+    private ResultActions exec() throws Exception {
+        return this.mockMvc.perform(get("/sample").accept(MediaType.APPLICATION_JSON));
+    }
+
+    private void doFail() {
+        fail("Exception expected");
     }
 
 }
