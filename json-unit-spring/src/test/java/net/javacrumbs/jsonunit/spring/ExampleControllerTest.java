@@ -28,7 +28,10 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import static java.math.BigDecimal.valueOf;
 import static net.javacrumbs.jsonunit.spring.JsonUnitResultMatchers.json;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -113,6 +116,26 @@ public class ExampleControllerTest {
     }
 
     @Test
+    public void isObjectShouldFailOnArray() throws Exception {
+        try {
+            exec().andExpect(json().node("result.array").isObject());
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("Node \"result.array\" is not an object. The actual value is '[1,2,3]'.", e.getMessage());
+        }
+    }
+
+    @Test
+    public void isStringShouldFailOnArray() throws Exception {
+        try {
+            exec().andExpect(json().node("result.array").isString());
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("Node \"result.array\" is not a string. The actual value is '[1,2,3]'.", e.getMessage());
+        }
+    }
+
+    @Test
     public void isArrayShouldPassOnArray() throws Exception {
         exec().andExpect(json().node("result.array").isArray());
     }
@@ -138,6 +161,24 @@ public class ExampleControllerTest {
         } catch (AssertionError e) {
             assertEquals("JSON documents are different:\n" +
                     "Different value found in node \"result.string\". Expected \"stringValue2\", got \"stringValue\".\n",
+                e.getMessage());
+        }
+    }
+
+    @Test
+    public void intValueShouldMatch() throws Exception {
+        exec().andExpect(json().node("result.array").matches(everyItem(lessThanOrEqualTo(valueOf(4)))));
+    }
+
+    @Test
+    public void intValueShouldFailIfDoesNotMatch() throws Exception {
+        try {
+            exec().andExpect(json().node("result.array").matches(everyItem(lessThanOrEqualTo(valueOf(2)))));
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("Node \"result.array\" does not match.\n" +
+                    "Expected: every item is a value less than or equal to <2>\n" +
+                    "     but: an item <3> was greater than <2>",
                 e.getMessage());
         }
     }

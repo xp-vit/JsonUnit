@@ -18,6 +18,7 @@ package net.javacrumbs.jsonunit.spring;
 import net.javacrumbs.jsonunit.core.Configuration;
 import net.javacrumbs.jsonunit.core.internal.Diff;
 import net.javacrumbs.jsonunit.core.internal.Node;
+import org.hamcrest.Matcher;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultMatcher;
 
@@ -25,6 +26,9 @@ import static net.javacrumbs.jsonunit.core.internal.Diff.create;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.getNode;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.nodeExists;
 import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.ARRAY;
+import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.OBJECT;
+import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.STRING;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class JsonUnitResultMatchers {
     private final String path;
@@ -108,6 +112,60 @@ public class JsonUnitResultMatchers {
                 }
             }
         };
+    }
+
+    /**
+     * Fails if the selected JSON is not an Object or is not present.
+     */
+    public ResultMatcher isObject() {
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                isPresent();
+                Node node = getNode(actual, path);
+                if (node.getNodeType() != OBJECT) {
+                    failOnType(node, "an object");
+                }
+            }
+        };
+    }
+
+    /**
+     * Fails if the selected JSON is not a String or is not present.
+     */
+    public ResultMatcher isString() {
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                isPresent();
+                Node node = getNode(actual, path);
+                if (node.getNodeType() != STRING) {
+                    failOnType(node, "a string");
+                }
+            }
+        };
+    }
+
+
+    /**
+     * Matches the node using Hamcrest matcher.
+     * <p/>
+     * <ul>
+     * <li>Numbers are mapped to BigDecimal</li>
+     * <li>Arrays are mapped to a Collection</li>
+     * <li>Objects are mapped to a map so you can use json(Part)Equals or a Map matcher</li>
+     * </ul>
+     *
+     * @param matcher
+     * @return
+     */
+    public ResultMatcher matches(final Matcher<?> matcher) {
+        return new AbstractResultMatcher(path, configuration) {
+            public void doMatch(Object actual) {
+                isPresent();
+                Node node = getNode(actual, path);
+                assertThat("Node \"" + path + "\" does not match.", node.getValue(), (Matcher<? super Object>) matcher);
+            }
+        };
+
     }
 
     private void failOnType(Node node, final String type) {
