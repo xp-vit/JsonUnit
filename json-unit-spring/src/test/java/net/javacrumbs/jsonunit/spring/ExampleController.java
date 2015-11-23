@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
+
 @RestController
 public class ExampleController {
 
@@ -37,6 +39,9 @@ public class ExampleController {
         }
         public int[] getArray() {
             return new int[]{1, 2, 3};
+        }
+        public BigDecimal getDecimal() {
+            return new BigDecimal("1.00001");
         }
     }
 }

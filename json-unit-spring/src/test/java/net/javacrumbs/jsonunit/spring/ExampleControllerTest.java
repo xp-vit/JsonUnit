@@ -15,6 +15,7 @@
  */
 package net.javacrumbs.jsonunit.spring;
 
+import net.javacrumbs.jsonunit.core.Option;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +42,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @WebAppConfiguration
 public class ExampleControllerTest {
 
-    public static final String CORRECT_JSON = "{\"result\":{\"string\":\"stringValue\", \"array\":[1, 2, 3]}}";
+    public static final String CORRECT_JSON = "{\"result\":{\"string\":\"stringValue\", \"array\":[1, 2, 3],\"decimal\":1.00001}}";
     @Autowired
     private WebApplicationContext wac;
 
@@ -60,8 +61,7 @@ public class ExampleControllerTest {
     @Test
     public void isEqualToShouldFailIfDoesNotEqual() throws Exception {
         try {
-            exec()
-                .andExpect(json().isEqualTo(CORRECT_JSON.replace("stringValue", "stringValue2")));
+            exec().andExpect(json().isEqualTo(CORRECT_JSON.replace("stringValue", "stringValue2")));
             doFail();
         } catch (AssertionError e) {
             assertEquals(
@@ -72,10 +72,24 @@ public class ExampleControllerTest {
     }
 
     @Test
+    public void isStringEqualToShouldFailOnNumber() throws Exception {
+        try {
+            exec().andExpect(json().node("result.array[0]").isStringEqualTo("1"));
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("Node \"result.array[0]\" is not a string. The actual value is '1'.", e.getMessage());
+        }
+    }
+
+    @Test
+    public void isStringEqualToShouldPassIfEquals() throws Exception {
+        exec().andExpect(json().node("result.string").isStringEqualTo("stringValue"));
+    }
+
+    @Test
     public void isAbsentShouldFailIfNodeExists() throws Exception {
         try {
-            exec()
-                .andExpect(json().node("result.string").isAbsent());
+            exec().andExpect(json().node("result.string").isAbsent());
             doFail();
         } catch (AssertionError e) {
             assertEquals("Node \"result.string\" is present.", e.getMessage());
@@ -91,8 +105,7 @@ public class ExampleControllerTest {
     @Test
     public void isPresentShouldFailIfNodeIsAbsent() throws Exception {
         try {
-            exec()
-                .andExpect(json().node("result.string2").isPresent());
+            exec().andExpect(json().node("result.string2").isPresent());
             doFail();
         } catch (AssertionError e) {
             assertEquals("Node \"result.string2\" is missing.", e.getMessage());
@@ -107,13 +120,23 @@ public class ExampleControllerTest {
     @Test
     public void isArrayShouldFailOnNotArray() throws Exception {
         try {
-            exec()
-                .andExpect(json().node("result.string").isArray());
+            exec().andExpect(json().node("result.string").isArray());
             doFail();
         } catch (AssertionError e) {
             assertEquals("Node \"result.string\" is not an array. The actual value is '\"stringValue\"'.", e.getMessage());
         }
     }
+
+    @Test
+    public void isArrayShouldFailIfNotPresent() throws Exception {
+        try {
+            exec().andExpect(json().node("result.array2").isArray());
+            doFail();
+        } catch (AssertionError e) {
+            assertEquals("Node \"result.array2\" is missing.", e.getMessage());
+        }
+    }
+
 
     @Test
     public void isObjectShouldFailOnArray() throws Exception {
@@ -141,10 +164,29 @@ public class ExampleControllerTest {
     }
 
     @Test
+    public void ignoreShouldWork() throws Exception {
+        exec().andExpect(json().isEqualTo("{\"result\":\"${json-unit.ignore}\"}"));
+    }
+
+    @Test
+    public void ignoreStringShouldBeModifiable() throws Exception {
+        exec().andExpect(json().ignoring("##IGNORE##").isEqualTo("{\"result\":\"##IGNORE##\"}"));
+    }
+
+    @Test
+    public void shouldSetTolerance() throws Exception {
+        exec().andExpect(json().node("result.decimal").withTolerance(0.001).isEqualTo(1));
+    }
+
+    @Test
+    public void settingOptionShouldTakeEffect() throws Exception {
+        exec().andExpect(json().node("result.array").when(Option.IGNORING_ARRAY_ORDER).isEqualTo(new int[]{3, 2, 1}));
+    }
+
+    @Test
     public void isNotEqualToShouldFailIfEquals() throws Exception {
         try {
-            exec()
-                .andExpect(json().isNotEqualTo(CORRECT_JSON));
+            exec().andExpect(json().isNotEqualTo(CORRECT_JSON));
             doFail();
         } catch (AssertionError e) {
             assertEquals(
