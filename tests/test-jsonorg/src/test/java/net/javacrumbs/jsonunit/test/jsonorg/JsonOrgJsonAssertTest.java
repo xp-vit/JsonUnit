@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,12 @@ package net.javacrumbs.jsonunit.test.jsonorg;
 
 import net.javacrumbs.jsonunit.test.base.AbstractJsonAssertTest;
 import net.javacrumbs.jsonunit.test.base.JsonTestUtils;
-import org.junit.Ignore;
-import org.junit.Test;
-
-import java.io.IOException;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import static net.javacrumbs.jsonunit.JsonAssert.assertJsonEquals;
-import static net.javacrumbs.jsonunit.test.base.JsonTestUtils.failIfNoException;
 import static net.javacrumbs.jsonunit.test.base.JsonTestUtils.readByJsonOrg;
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class JsonOrgJsonAssertTest extends AbstractJsonAssertTest {
     protected Object readValue(String value) {
@@ -43,18 +40,16 @@ public class JsonOrgJsonAssertTest extends AbstractJsonAssertTest {
     }
 
     @Test
-    public void testEqualsNodeFailJsonOrgArray() throws IOException {
-        try {
-            assertJsonEquals(readByJsonOrg("[1, 2]"), readByJsonOrg("[1, 2, 3]"));
-            failIfNoException();
-        } catch (AssertionError e) {
-            assertEquals("JSON documents are different:\nArray \"\" has different length, expected: <2> but was: <3>.\n", e.getMessage());
-        }
+    public void testEqualsNodeFailJsonOrgArray() {
+        assertThatThrownBy(() -> assertJsonEquals(readByJsonOrg("[1, 2]"), readByJsonOrg("[1, 2, 3]")))
+            .hasMessage("JSON documents are different:\n" +
+                "Array \"\" has different length, expected: <2> but was: <3>.\n" +
+                "Array \"\" has different content. Extra values: [3], expected: <[1,2]> but was: <[1,2,3]>\n");
     }
 
     @Test
     @Override
-    @Ignore
+    @Disabled
     public void testBinary() {
         // no support for binary
     }

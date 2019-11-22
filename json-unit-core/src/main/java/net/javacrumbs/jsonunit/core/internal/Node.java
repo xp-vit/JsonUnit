@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,9 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Set;
 
-import static java.util.Collections.unmodifiableCollection;
-import static java.util.Collections.unmodifiableMap;
+import static net.javacrumbs.jsonunit.core.internal.JsonUtils.prettyPrint;
 
 
 /**
@@ -37,24 +35,12 @@ public interface Node {
             public Object getValue(Node node) {
                 // custom conversion to map. We want be consistent and native mapping may have different rules for
                 // serializing numbers, dates etc.
-                Map<String, Object> result = new LinkedHashMap<String, Object>();
-                Iterator<KeyValue> fields = node.fields();
-                while (fields.hasNext()) {
-                    KeyValue keyValue = fields.next();
-                    result.put(keyValue.getKey(), keyValue.getValue().getValue());
-                }
-                return unmodifiableMap(result);
+                return new JsonMap(node);
             }
         },
         ARRAY("array") {
             public Object getValue(Node node) {
-                Iterator<Node> nodeIterator = node.arrayElements();
-                LinkedList<Object> result = new LinkedList<Object>();
-                while (nodeIterator.hasNext()) {
-                    Node arrayNode = nodeIterator.next();
-                    result.add(arrayNode.getValue());
-                }
-                return unmodifiableCollection(result);
+                return new JsonList(node);
             }
         },
         STRING("string") {
@@ -122,7 +108,7 @@ public interface Node {
         private final String key;
         private final Node value;
 
-        public KeyValue(String key, Node value) {
+        KeyValue(String key, Node value) {
             this.key = key;
             this.value = value;
         }
@@ -137,63 +123,113 @@ public interface Node {
     }
 
     Node MISSING_NODE = new Node() {
-        public boolean isArray() {
-            return false;
-        }
-
+        @Override
         public Node element(int index) {
             return MISSING_NODE;
         }
 
+        @Override
         public Iterator<KeyValue> fields() {
             Set<KeyValue> emptySet = Collections.emptySet();
             return emptySet.iterator();
         }
 
+        @Override
         public Node get(String key) {
             return this;
         }
 
+        @Override
         public boolean isMissingNode() {
             return true;
         }
 
+        @Override
         public boolean isNull() {
             return false;
         }
 
+        @Override
         public Iterator<Node> arrayElements() {
             Set<Node> emptySet = Collections.emptySet();
             return emptySet.iterator();
         }
 
+        @Override
         public int size() {
             return 0;
         }
 
+        @Override
         public String asText() {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public NodeType getNodeType() {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public BigDecimal decimalValue() {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public Boolean asBoolean() {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public Object getValue() {
-            throw new UnsupportedOperationException();
+            return null;
         }
 
+        @Override
         public void ___do_not_implement_this_interface_seriously() {}
     };
     interface ValueExtractor {
         Object getValue(Node node);
+    }
+
+    class JsonMap extends LinkedHashMap<String, Object> implements NodeWrapper {
+        private final Node wrappedNode;
+
+        JsonMap(Node node) {
+            wrappedNode = node;
+            Iterator<KeyValue> fields = node.fields();
+            while (fields.hasNext()) {
+                KeyValue keyValue = fields.next();
+                put(keyValue.getKey(), keyValue.getValue().getValue());
+            }
+        }
+
+        @Override
+        public String toString() {
+            return prettyPrint(this);
+        }
+
+        @Override
+        public Node getWrappedNode() {
+            return wrappedNode;
+        }
+    }
+
+    class JsonList extends LinkedList<Object> implements NodeWrapper {
+        private final Node wrappedNode;
+
+        JsonList(Node node) {
+            Iterator<Node> nodeIterator = node.arrayElements();
+            while (nodeIterator.hasNext()) {
+                Node arrayNode = nodeIterator.next();
+                add(arrayNode.getValue());
+            }
+            wrappedNode = node;
+        }
+
+        @Override
+        public Node getWrappedNode() {
+            return wrappedNode;
+        }
     }
 }

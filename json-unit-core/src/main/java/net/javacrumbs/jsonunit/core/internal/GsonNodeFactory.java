@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ class GsonNodeFactory extends AbstractNodeFactory {
     private final Gson gson = new Gson();
 
     @Override
-    protected Node convertValue(Object source) {
+    protected Node doConvertValue(Object source) {
         if (source instanceof JsonElement) {
             return newNode((JsonElement) source);
         } else {
@@ -57,9 +57,7 @@ class GsonNodeFactory extends AbstractNodeFactory {
         // GSON is always lenient :-(
         try {
             return newNode(new JsonParser().parse(value));
-        } catch (JsonIOException e) {
-            throw new IllegalArgumentException(e);
-        } catch (JsonSyntaxException e) {
+        } catch (JsonIOException | JsonSyntaxException e) {
             throw new IllegalArgumentException(e);
         } finally {
             closeQuietly(value);
@@ -81,7 +79,7 @@ class GsonNodeFactory extends AbstractNodeFactory {
     static final class GsonNode extends AbstractNode {
         private final JsonElement jsonNode;
 
-        public GsonNode(JsonElement jsonNode) {
+        GsonNode(JsonElement jsonNode) {
             this.jsonNode = jsonNode;
         }
 

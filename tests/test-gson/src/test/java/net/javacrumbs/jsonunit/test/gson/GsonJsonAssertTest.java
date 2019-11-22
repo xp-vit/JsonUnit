@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package net.javacrumbs.jsonunit.test.gson;
 
 import net.javacrumbs.jsonunit.test.base.AbstractJsonAssertTest;
 import net.javacrumbs.jsonunit.test.base.JsonTestUtils;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class GsonJsonAssertTest extends AbstractJsonAssertTest {
     protected Object readValue(String value) {
@@ -26,7 +26,7 @@ public class GsonJsonAssertTest extends AbstractJsonAssertTest {
     }
 
     @Override
-    @Ignore
+    @Disabled
     @Test
     public void shouldFailIfQuotationMarksMissingOnActualKeys() {
         // GSON is by default lenient
@@ -35,8 +35,8 @@ public class GsonJsonAssertTest extends AbstractJsonAssertTest {
 
     @Test
     @Override
-    @Ignore
-    public void testBinary() {
+    @Disabled
+    protected void testBinary() {
         // no support for binary
     }
 }

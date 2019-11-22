@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +17,20 @@ package net.javacrumbs.jsonunit.test.all;
 
 import net.javacrumbs.jsonunit.test.base.AbstractJsonMatchersTest;
 import net.javacrumbs.jsonunit.test.base.JsonTestUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
 import static net.javacrumbs.jsonunit.JsonMatchers.jsonEquals;
 import static net.javacrumbs.jsonunit.core.util.ResourceUtils.resource;
-import static net.javacrumbs.jsonunit.test.base.JsonTestUtils.readByJackson1;
 import static net.javacrumbs.jsonunit.test.base.JsonTestUtils.readByJackson2;
 import static net.javacrumbs.jsonunit.test.base.JsonTestUtils.readByJsonOrg;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class AllJsonMatchersTest extends AbstractJsonMatchersTest {
     @Test
-    public void testJsonNodeJackson1() throws IOException {
-        assertThat(readByJackson1("{\"test\":1}"), jsonEquals("{\"test\":1}"));
+    public void testJsonNodeJsonOrg() throws IOException {
+        assertThat(readByJsonOrg("{\"test\":1}"), jsonEquals("{\"test\":1}"));
     }
 
     @Test
@@ -49,7 +48,12 @@ public class AllJsonMatchersTest extends AbstractJsonMatchersTest {
         assertThat("{\"test\":1}", jsonEquals(resource("test.json")));
     }
 
+    @Test
+    public void testEqualsUnicodeResource() throws Exception {
+        assertThat("{\"face\":\"\uD83D\uDE10\"}", jsonEquals(resource("unicode.json")));
+    }
+
     protected Object readValue(String value) {
-            return JsonTestUtils.readByJackson1(value);
+            return JsonTestUtils.readByJackson2(value);
         }
 }

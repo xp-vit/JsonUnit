@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,21 +19,14 @@ package net.javacrumbs.jsonunit.core.internal;
 import net.javacrumbs.jsonunit.core.Configuration;
 import net.javacrumbs.jsonunit.core.Option;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Internal utility class to parse JSON values.
  */
 public class JsonUtils {
-
-    private static final Pattern arrayPattern = Pattern.compile("(.*)\\[(-?\\d+)\\]");
-
-    /**
-     * We need to ignore "\." when splitting path.
-     */
-    public static final Pattern dotWithPreviousChar = Pattern.compile("[^\\\\]\\.");
-
     private static final Converter converter = Converter.createDefaultConverter();
 
 
@@ -57,52 +50,25 @@ public class JsonUtils {
      * @return
      */
     public static Node convertToJson(Object source, String label, boolean lenient) {
-        return converter.convertToNode(source, label, lenient);
+        if (source instanceof JsonSource) {
+            return converter.convertToNode(((JsonSource) source).getJson(), label, lenient);
+        } else {
+            return converter.convertToNode(source, label, lenient);
+        }
     }
 
 
     /**
-     * Returns node with given path.
-     *
-     * @param root
-     * @param path
+     * Converts value to Json node. It can be Map, String, null, or primitive. Should not be parsed, just converted.
+     * @param source
      * @return
      */
-    static Node getNode(Node root, String path) {
-        if (path.length() == 0) {
-            return root;
-        }
-
-        Node startNode = root;
-        Matcher pathMatcher = dotWithPreviousChar.matcher(path);
-        int pos = 0;
-        while (pathMatcher.find()) {
-            String step = path.substring(pos, pathMatcher.end() - 1);
-            pos = pathMatcher.end();
-            startNode = doStep(step, startNode);
-        }
-        startNode = doStep(path.substring(pos), startNode);
-        return startNode;
-    }
-
-    private static Node doStep(String step, Node startNode) {
-        step = step.replaceAll("\\\\.", ".");
-        Matcher matcher = arrayPattern.matcher(step);
-        if (!matcher.matches()) {
-            startNode = startNode.get(step);
+    public static Node valueToNode(Object source) {
+        if (source instanceof Node) {
+            return (Node) source;
         } else {
-            if (matcher.group(1).length() != 0) {
-                startNode = startNode.get(matcher.group(1));
-            }
-
-            int index = Integer.valueOf(matcher.group(2));
-            if (index < 0) {
-                startNode = startNode.element(startNode.size() + index);
-            } else {
-                startNode = startNode.element(index);
-            }
+            return converter.valueToNode(source);
         }
-        return startNode;
     }
 
     /**
@@ -113,8 +79,19 @@ public class JsonUtils {
      * @return
      */
     public static Node getNode(Object root, String path) {
-        return getNode(convertToJson(root, "actual"), path);
+        return getNode(root, Path.create(path));
     }
+
+    /**
+      * Returns node with given path.
+      *
+      * @param root
+      * @param path
+      * @return
+      */
+     public static Node getNode(Object root, Path path) {
+         return path.getNode(convertToJson(root, "actual"));
+     }
 
     /**
      * Returns true if the node exists.
@@ -125,13 +102,39 @@ public class JsonUtils {
     }
 
     public static boolean nodeAbsent(Object json, String path, Configuration configuration) {
+        return nodeAbsent(json, Path.create(path), configuration);
+    }
+
+    public static boolean nodeAbsent(Object json, Path path, Configuration configuration) {
         return nodeAbsent(json, path, configuration.getOptions().contains(Option.TREATING_NULL_AS_ABSENT));
+    }
+
+    public static Object jsonSource(final Object json, final String pathPrefix) {
+        return new JsonSource() {
+            @Override
+            public Object getJson() {
+                return json;
+            }
+
+            @Override
+            public String getPathPrefix() {
+                return pathPrefix;
+            }
+        };
+    }
+
+    public static String getPathPrefix(Object json) {
+        if (json instanceof JsonSource) {
+               return ((JsonSource) json).getPathPrefix();
+           } else {
+               return "";
+           }
     }
 
     /**
      * Returns true if the is absent.
      */
-    static boolean nodeAbsent(Object json, String path, boolean treatNullAsAbsent) {
+    static boolean nodeAbsent(Object json, Path path, boolean treatNullAsAbsent) {
         Node node = getNode(json, path);
         if (node.isNull()) {
             return treatNullAsAbsent;
@@ -173,6 +176,17 @@ public class JsonUtils {
         }
     }
 
+    /**
+     * Wraps deserialized object - supports null, String, numbers, maps, lists, ...
+     */
+    public static Node wrapDeserializedObject(Object source) {
+        return GenericNodeBuilder.wrapDeserializedObject(source);
+    }
+
+    public static Object missingNode() {
+        return Node.MISSING_NODE;
+    }
+
     private static boolean isNull(String trimmed) {
         return trimmed.equals("null");
     }
@@ -201,4 +215,27 @@ public class JsonUtils {
         }
         return true;
     }
+
+    static String prettyPrint(Map<String, Object> map) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("{");
+        Iterator<String> keys = new TreeSet<>(map.keySet()).iterator();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            builder
+                .append('"').append(key).append('"')
+                .append(":")
+                .append(quoteString(map.get(key)));
+            if (keys.hasNext()) {
+                builder.append(",");
+            }
+        }
+        builder.append("}");
+        return builder.toString();
+    }
+
+    private static Object quoteString(Object value) {
+        return value instanceof String ? "\"" + value + "\"" : value;
+    }
+
 }

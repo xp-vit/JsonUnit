@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@ import com.google.gson.JsonParser;
 import com.squareup.moshi.Moshi;
 import org.json.JSONTokener;
 
+import javax.json.Json;
+import javax.json.JsonReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Map;
-
-import static org.junit.Assert.fail;
 
 public class JsonTestUtils {
 
@@ -34,11 +35,9 @@ public class JsonTestUtils {
         }
     }
 
-    public static Object readByJackson1(String value) {
-        try {
-            return new org.codehaus.jackson.map.ObjectMapper().readTree(value);
-        } catch (IOException e) {
-            throw new IllegalArgumentException(e);
+    public static Object readByJohnzon(String value) {
+        try (JsonReader reader = Json.createReader(new StringReader(value))){
+            return reader.read();
         }
     }
 
@@ -57,9 +56,5 @@ public class JsonTestUtils {
         } catch (IOException e) {
             throw new IllegalArgumentException(e);
         }
-    }
-
-    public static void failIfNoException() {
-        fail("Exception expected");
     }
 }

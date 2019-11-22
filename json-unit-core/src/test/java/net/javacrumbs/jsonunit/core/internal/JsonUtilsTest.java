@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,34 @@
 package net.javacrumbs.jsonunit.core.internal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 
+import static java.util.Collections.singletonMap;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.convertToJson;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.getNode;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.nodeAbsent;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.nodeExists;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.quoteIfNeeded;
+import static net.javacrumbs.jsonunit.core.internal.JsonUtils.valueToNode;
 import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.ARRAY;
 import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.BOOLEAN;
+import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.NULL;
 import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.NUMBER;
 import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.OBJECT;
 import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.STRING;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonUtilsTest {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    public void testConvertToJson() {
+    void testConvertToJson() {
         assertEquals(STRING, convertToJson("\"a\"", "x").getNodeType());
         assertEquals(NUMBER, convertToJson(1, "x").getNodeType());
         assertEquals(NUMBER, convertToJson("1", "x").getNodeType());
@@ -56,7 +60,24 @@ public class JsonUtilsTest {
     }
 
     @Test
-    public void testQuoteIfNeeded() {
+    void testValueToJson() {
+        assertEquals(STRING, valueToNode("a").getNodeType());
+        assertEquals(NUMBER, valueToNode(BigDecimal.valueOf(1)).getNodeType());
+        assertEquals(STRING, valueToNode("1").getNodeType());
+        assertEquals(NUMBER, valueToNode(1.0).getNodeType());
+        assertEquals(STRING, valueToNode("1.0").getNodeType());
+        assertEquals(OBJECT, valueToNode(singletonMap("a", 1)).getNodeType());
+        assertEquals(ARRAY, valueToNode(new int[]{1 ,2, 3}).getNodeType());
+        assertEquals(STRING, valueToNode("true").getNodeType());
+        assertEquals(BOOLEAN, valueToNode(true).getNodeType());
+        assertEquals(STRING, valueToNode("false").getNodeType());
+        assertEquals(BOOLEAN, valueToNode(false).getNodeType());
+        assertEquals(STRING, valueToNode("null").getNodeType());
+        assertEquals(NULL, valueToNode(null).getNodeType());
+    }
+
+    @Test
+    void testQuoteIfNeeded() {
         assertEquals("1", quoteIfNeeded("1"));
         assertEquals("1.1", quoteIfNeeded("1.1"));
         assertEquals("{\"a\":1}", quoteIfNeeded("{\"a\":1}"));
@@ -72,67 +93,67 @@ public class JsonUtilsTest {
     }
 
     @Test
-    public void testGetStartNodeRoot() throws IOException {
+    void testGetStartNodeRoot() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":{\"value\":1}}"), "");
         assertEquals("{\"test\":{\"value\":1}}", startNode.toString());
     }
 
     @Test
-    public void testGetStartNodeSimple() throws IOException {
+    void testGetStartNodeSimple() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":{\"value\":1}}"), "test");
         assertEquals("{\"value\":1}", startNode.toString());
     }
 
     @Test
-    public void testGetStartNodeTwoSteps() throws IOException {
+    void testGetStartNodeTwoSteps() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":{\"value\":1}}"), "test.value");
         assertEquals(1, startNode.decimalValue().intValue());
     }
 
     @Test
-    public void testGetStartNodeArrays() throws IOException {
+    void testGetStartNodeArrays() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":{\"values\":[1,2]}}"), "test.values[1]");
         assertEquals(2, startNode.decimalValue().intValue());
     }
 
     @Test
-    public void testGetStartNodeArraysNegated() throws IOException {
+    void testGetStartNodeArraysNegated() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":{\"values\":[1,2,3,4,5]}}"), "test.values[-2]");
         assertEquals(4, startNode.decimalValue().intValue());
     }
 
     @Test
-    public void testGetStartNodeArrays2() throws IOException {
+    void testGetStartNodeArrays2() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":[{\"values\":[1,2]}, {\"values\":[3,4]}]}"), "test[1].values[1]");
         assertEquals(4, startNode.decimalValue().intValue());
     }
 
     @Test
-    public void testGetStartNodeArraysRootComplex() throws IOException {
+    void testGetStartNodeArraysRootComplex() throws IOException {
         Node startNode = getNode(mapper.readTree("[{\"values\":[1,2]}, {\"values\":[3,4]}]"), "[1].values[1]");
         assertEquals(4, startNode.decimalValue().intValue());
     }
 
     @Test
-    public void testGetStartNodeArraysConvoluted() throws IOException {
+    void testGetStartNodeArraysConvoluted() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":[{\"values\":[1,2]}, {\"values\":[3,4]}]}"), "test.[1].values.[1]");
         assertEquals(4, startNode.decimalValue().intValue());
     }
 
     @Test
-    public void testGetStartNodeArraysRoot() throws IOException {
+    void testGetStartNodeArraysRoot() throws IOException {
         Node startNode = getNode(mapper.readTree("[1,2]"), "[0]");
         assertEquals(1, startNode.decimalValue().intValue());
     }
 
     @Test
-    public void testGetStartNodeNonexisting() throws IOException {
+    void testGetStartNodeNonexisting() throws IOException {
         Node startNode = getNode(mapper.readTree("{\"test\":{\"value\":1}}"), "test.bogus");
         assertEquals(true, startNode.isMissingNode());
     }
 
     @Test
-    public void testNodeExists() throws IOException {
+    void testNodeExists() throws IOException {
         String json = "{\"test\":{\"value\":1}}";
         assertTrue(nodeExists(json, "test"));
         assertTrue(nodeExists(json, "test.value"));
@@ -141,18 +162,24 @@ public class JsonUtilsTest {
     }
 
     @Test
-    public void testNodeAbsent() throws IOException {
+    void testNodeAbsent() throws IOException {
         String json = "{\"test\":{\"value\":1, \"value2\": null}}";
-        assertFalse(nodeAbsent(json, "test", false));
-        assertFalse(nodeAbsent(json, "test.value", false));
-        assertTrue(nodeAbsent(json, "test.nonsense", false));
-        assertTrue(nodeAbsent(json, "root", false));
-        assertTrue(nodeAbsent(json, "test.value2", true));
-        assertFalse(nodeAbsent(json, "test.value2", false));
+        assertFalse(nodeAbsent(json, Path.create("test"), false));
+        assertFalse(nodeAbsent(json, Path.create("test.value"), false));
+        assertTrue(nodeAbsent(json, Path.create("test.nonsense"), false));
+        assertTrue(nodeAbsent(json, Path.create("root"), false));
+        assertTrue(nodeAbsent(json, Path.create("test.value2"), true));
+        assertFalse(nodeAbsent(json, Path.create("test.value2"), false));
     }
 
     @Test
-    public void shouldIgnoreEscapedDot() throws IOException {
-        assertFalse(nodeAbsent("{\"test.1\":{\"value\":1}}", "test\\.1", false));
+    void shouldIgnoreEscapedDot() throws IOException {
+        assertFalse(nodeAbsent("{\"test.1\":{\"value\":1}}", Path.create("test\\.1"), false));
+    }
+
+    @Test
+    void shouldNotProcessBackslash() {
+        // JSON string has to be double escaped (once for Java, once for JSON)
+        assertFalse(nodeAbsent("{\"test\\\\backslash\":{\"value\":1}}", Path.create("test\\backslash"), false));
     }
 }

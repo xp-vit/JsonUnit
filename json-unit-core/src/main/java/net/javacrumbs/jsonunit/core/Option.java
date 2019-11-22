@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ public enum Option {
     /**
      * Treats null nodes in actual value as absent. In other words
      * if you expect {"test":{"a":1}} this {"test":{"a":1, "b": null}} will pass the test.
+     * When using within {@link ConfigurationWhen#then(Option, Option...)}, exact path to such nodes should be passed,
+     * which is test.b in the example above.
      */
     TREATING_NULL_AS_ABSENT,
 
@@ -32,6 +34,7 @@ public enum Option {
 
     /**
      * Ignores extra fields in the actual value.
+     * When using within {@link ConfigurationWhen#then(Option, Option...)}, path to the nodes with such fields should be passed.
      */
     IGNORING_EXTRA_FIELDS,
 
@@ -53,6 +56,7 @@ public enum Option {
 
     /**
      * Ignores values but fails if value types are different.
+     * When using within {@link ConfigurationWhen#then(Option, Option...)}, path to the node with ignored value should be passed.
      */
     IGNORING_VALUES
 }

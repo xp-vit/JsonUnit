@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Resource reading utility
@@ -41,7 +42,7 @@ public class ResourceUtils {
             throw new IllegalArgumentException(format("resource '%s' not found", resourceName));
         }
 
-        return new BufferedReader(new InputStreamReader(resourceStream));
+        return new BufferedReader(new InputStreamReader(resourceStream, UTF_8));
     }
 
     static void closeQuietly(final Reader resourceReader) {

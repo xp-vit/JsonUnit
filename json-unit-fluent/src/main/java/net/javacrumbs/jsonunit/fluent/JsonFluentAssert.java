@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,26 +16,21 @@
 package net.javacrumbs.jsonunit.fluent;
 
 import net.javacrumbs.jsonunit.core.Configuration;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen.ApplicableForPath;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen.PathsParam;
 import net.javacrumbs.jsonunit.core.Option;
-import net.javacrumbs.jsonunit.core.internal.Diff;
-import net.javacrumbs.jsonunit.core.internal.Node;
-import net.javacrumbs.jsonunit.core.internal.Node.NodeType;
+import net.javacrumbs.jsonunit.core.internal.Path;
+import net.javacrumbs.jsonunit.core.internal.matchers.InternalMatcher;
+import net.javacrumbs.jsonunit.core.listener.DifferenceListener;
 import org.hamcrest.Matcher;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 
-import static net.javacrumbs.jsonunit.core.Option.COMPARING_ONLY_STRUCTURE;
-import static net.javacrumbs.jsonunit.core.internal.Diff.create;
-import static net.javacrumbs.jsonunit.core.internal.Diff.quoteTextValue;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.convertToJson;
 import static net.javacrumbs.jsonunit.core.internal.JsonUtils.getNode;
-import static net.javacrumbs.jsonunit.core.internal.JsonUtils.nodeAbsent;
-import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.ARRAY;
-import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.OBJECT;
-import static net.javacrumbs.jsonunit.core.internal.Node.NodeType.STRING;
+import static net.javacrumbs.jsonunit.core.internal.JsonUtils.getPathPrefix;
+import static net.javacrumbs.jsonunit.core.internal.matchers.InternalMatcher.ACTUAL;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 
@@ -62,25 +57,18 @@ import static org.hamcrest.MatcherAssert.assertThat;
  * </ol>
  */
 public class JsonFluentAssert {
-    private static final String ACTUAL = "actual";
+    final InternalMatcher internalMatcher;
 
-    private final String path;
-    private final Object actual;
-    private final String description;
-    private final Configuration configuration;
-
-    private JsonFluentAssert(Object actual, String path, String description, Configuration configuration) {
-        if (actual == null) {
-            throw new IllegalArgumentException("Can not make assertions about null JSON.");
-        }
-        this.path = path;
-        this.actual = actual;
-        this.description = description;
-        this.configuration = configuration;
+    private JsonFluentAssert(InternalMatcher internalMatcher) {
+        this.internalMatcher = internalMatcher;
     }
 
-    private JsonFluentAssert(Object actual) {
-        this(actual, "", "", Configuration.empty());
+    private JsonFluentAssert(Object actual, Path path, String description, Configuration configuration) {
+        this.internalMatcher = new InternalMatcher(actual, path, description, configuration);
+    }
+
+    private JsonFluentAssert(Object actual, String pathPrefix) {
+        this(actual, Path.create("", pathPrefix), "", Configuration.empty());
     }
 
     /**
@@ -91,8 +79,8 @@ public class JsonFluentAssert {
      * @param json
      * @return new JsonFluentAssert object.
      */
-    public static JsonFluentAssert assertThatJson(Object json) {
-        return new JsonFluentAssert(convertToJson(json, ACTUAL));
+    public static ConfigurableJsonFluentAssert assertThatJson(Object json) {
+        return new ConfigurableJsonFluentAssert(convertToJson(json, ACTUAL), getPathPrefix(json));
     }
 
     /**
@@ -111,12 +99,9 @@ public class JsonFluentAssert {
      * @return {@code this} object.
      * @see #isStringEqualTo(String)
      */
-    public JsonFluentAssertAfterAssertion isEqualTo(Object expected) {
-        Diff diff = createDiff(expected, configuration);
-        if (!diff.similar()) {
-            failWithMessage(diff.differences());
-        }
-        return JsonFluentAssertAfterAssertion.wrap(this);
+    public JsonFluentAssert isEqualTo(Object expected) {
+        internalMatcher.isEqualTo(expected);
+        return this;
     }
 
 
@@ -124,17 +109,9 @@ public class JsonFluentAssert {
      * Fails if the selected JSON is not a String or is not present or the value
      * is not equal to expected value.
      */
-    public JsonFluentAssertAfterAssertion isStringEqualTo(String expected) {
-        isString();
-        Node node = getNode(actual, path);
-        if (!node.asText().equals(expected)) {
-            failOnDifference(quoteTextValue(expected), quoteTextValue(node.asText()));
-        }
-        return JsonFluentAssertAfterAssertion.wrap(this);
-    }
-
-    private void failOnDifference(Object expected, Object actual) {
-        failWithMessage(String.format("Different value found in node \"%s\", expected: <%s> but was: <%s>.", path, expected, actual));
+    public JsonFluentAssert isStringEqualTo(String expected) {
+        internalMatcher.isStringEqualTo(expected);
+        return this;
     }
 
     /**
@@ -144,12 +121,9 @@ public class JsonFluentAssert {
      * @param expected
      * @return {@code this} object.
      */
-    public JsonFluentAssertAfterAssertion isNotEqualTo(Object expected) {
-        Diff diff = createDiff(expected, configuration);
-        if (diff.similar()) {
-            failWithMessage("JSON is equal.");
-        }
-        return JsonFluentAssertAfterAssertion.wrap(this);
+    public JsonFluentAssert isNotEqualTo(Object expected) {
+        internalMatcher.isNotEqualTo(expected);
+        return this;
     }
 
     /**
@@ -162,12 +136,9 @@ public class JsonFluentAssert {
      * @deprecated Use IGNORING_VALUES option instead
      */
     @Deprecated
-    public JsonFluentAssertAfterAssertion hasSameStructureAs(Object expected) {
-        Diff diff = createDiff(expected, configuration.withOptions(COMPARING_ONLY_STRUCTURE));
-        if (!diff.similar()) {
-            failWithMessage(diff.differences());
-        }
-        return JsonFluentAssertAfterAssertion.wrap(this);
+    public JsonFluentAssert hasSameStructureAs(Object expected) {
+        internalMatcher.hasSameStructureAs(expected);
+        return this;
     }
 
     /**
@@ -178,114 +149,11 @@ public class JsonFluentAssert {
      * assertThatJson("{\"root\":{\"test\":[1,2,3]}}").node("root.test[0]").isEqualTo("1");
      * </code>
      *
-     * @param path
+     * @param newPath
      * @return object comparing only node given by path.
      */
-    public JsonFluentAssert node(String path) {
-        return new JsonFluentAssert(actual, path, description, configuration);
-    }
-
-    /**
-     * Adds paths to be ignored
-     */
-    public JsonFluentAssert whenIgnoringPaths(String... pathsToBeIgnored) {
-        return new JsonFluentAssert(actual, path, description, configuration.whenIgnoringPaths(pathsToBeIgnored));
-    }
-
-    private Diff createDiff(Object expected, Configuration configuration) {
-        return create(expected, actual, ACTUAL, path, configuration);
-    }
-
-    private void failWithMessage(String message) {
-        if (description != null && description.length() > 0) {
-            throw new AssertionError("[" + description + "] " + message);
-        } else {
-            throw new AssertionError(message);
-        }
-    }
-
-    /**
-     * Sets the description of this object.
-     *
-     * @param description
-     * @return
-     */
-    public JsonFluentAssert as(String description) {
-        return describedAs(description);
-    }
-
-    /**
-     * Sets the description of this object.
-     *
-     * @param description
-     * @return
-     */
-    public JsonFluentAssert describedAs(String description) {
-        return new JsonFluentAssert(actual, path, description, configuration);
-    }
-
-    /**
-     * Sets the placeholder that can be used to ignore values.
-     * The default value is ${json-unit.ignore}
-     *
-     * @param ignorePlaceholder
-     * @return
-     */
-    public JsonFluentAssert ignoring(String ignorePlaceholder) {
-        return new JsonFluentAssert(actual, path, description, configuration.withIgnorePlaceholder(ignorePlaceholder));
-    }
-
-    /**
-     * Sets the tolerance for floating number comparison. If set to null, requires exact match of the values.
-     * For example, if set to 0.01, ignores all differences lower than 0.01, so 1 and 0.9999 are considered equal.
-     *
-     * @param tolerance
-     */
-    public JsonFluentAssert withTolerance(double tolerance) {
-        return withTolerance(BigDecimal.valueOf(tolerance));
-    }
-
-    /**
-     * Sets the tolerance for floating number comparison. If set to null, requires exact match of the values.
-     * For example, if set to 0.01, ignores all differences lower than 0.01, so 1 and 0.9999 are considered equal.
-     *
-     * @param tolerance
-     */
-    public JsonFluentAssert withTolerance(BigDecimal tolerance) {
-        return new JsonFluentAssert(actual, path, description, configuration.withTolerance(tolerance));
-    }
-
-
-    /**
-     * Adds a matcher to be used in ${json-unit.matches:matcherName} macro.
-     */
-    public JsonFluentAssert withMatcher(String matcherName, Matcher<?> matcher) {
-        return new JsonFluentAssert(actual, path, description, configuration.withMatcher(matcherName, matcher));
-    }
-
-    /**
-     * When set to true, treats null nodes in actual value as absent. In other words
-     * if you expect {"test":{"a":1}} this {"test":{"a":1, "b": null}} will pass the test.
-     *
-     * @return
-     * @deprecated Use when(Option.TREATING_NULL_AS_ABSENT)
-     */
-    @Deprecated
-    public JsonFluentAssert treatingNullAsAbsent() {
-        return when(Option.TREATING_NULL_AS_ABSENT);
-    }
-
-    /**
-     * Sets options changing comparison behavior. This method has to be called
-     * <b>before</b> assertion.
-     * For more info see {@link net.javacrumbs.jsonunit.core.Option}
-     *
-     * @param firstOption
-     * @param otherOptions
-     * @see net.javacrumbs.jsonunit.core.Option
-     */
-    public JsonFluentAssert when(Option firstOption, Option... otherOptions) {
-        return new JsonFluentAssert(actual, path, description, configuration.withOptions(firstOption, otherOptions));
+    public JsonFluentAssert node(String newPath) {
+        return new JsonFluentAssert(internalMatcher.node(newPath));
     }
 
     /**
@@ -293,27 +161,19 @@ public class JsonFluentAssert {
      *
      * @return
      */
-    public JsonFluentAssertAfterAssertion isAbsent() {
-        if (!nodeAbsent(actual, path, configuration)) {
-            failOnDifference("node to be absent", quoteTextValue(getNode(actual, path)));
-
-        }
-        return JsonFluentAssertAfterAssertion.wrap(this);
+    public JsonFluentAssert isAbsent() {
+        internalMatcher.isAbsent();
+        return this;
     }
 
     /**
      * Fails if the node is missing.
      */
-    public JsonFluentAssertAfterAssertion isPresent() {
-        return isPresent("node to be present");
+    public JsonFluentAssert isPresent() {
+        internalMatcher.isPresent();
+        return this;
     }
 
-    private JsonFluentAssertAfterAssertion isPresent(String expectedValue) {
-        if (nodeAbsent(actual, path, configuration)) {
-            failOnDifference(expectedValue, "missing");
-        }
-        return JsonFluentAssertAfterAssertion.wrap(this);
-    }
 
     /**
      * Fails if the selected JSON is not an Array or is not present.
@@ -321,74 +181,51 @@ public class JsonFluentAssert {
      * @return
      */
     public ArrayAssert isArray() {
-        Node node = assertType(ARRAY);
-        return new ArrayAssert(node.arrayElements());
+
+        return new ArrayAssert(internalMatcher.isArray());
     }
 
-    private Node assertType(NodeType type) {
-        isPresent(type.getDescription());
-        Node node = getNode(actual, path);
-        if (node.getNodeType() != type) {
-            failOnType(node, type);
-        }
-        return node;
-    }
 
     /**
      * Fails if the selected JSON is not an Object or is not present.
      */
     public void isObject() {
-        assertType(OBJECT);
+        internalMatcher.isObject();
     }
 
     /**
      * Fails if the selected JSON is not a String or is not present.
      */
     public void isString() {
-        assertType(STRING);
+        internalMatcher.isString();
     }
-
-    private void failOnType(Node node, final NodeType expectedType) {
-        failWithMessage("Node \"" + path + "\" has invalid type, expected: <" + expectedType.getDescription() + "> but was: <" + quoteTextValue(node.getValue()) + ">.");
-    }
-
 
     /**
-     * Matches the node using Hamcrest matcher.
+     * Matches the node using Hamcrest internalMatcher.
      *
      * <ul>
      *     <li>Numbers are mapped to BigDecimal</li>
      *     <li>Arrays are mapped to a Collection</li>
-     *     <li>Objects are mapped to a map so you can use json(Part)Equals or a Map matcher</li>
+     *     <li>Objects are mapped to a map so you can use json(Part)Equals or a Map internalMatcher</li>
      * </ul>
      *
      * @param matcher
      * @return
      */
     public JsonFluentAssert matches(Matcher<?> matcher) {
-        isPresent();
-        match(actual, path, matcher);
+        internalMatcher.matches(matcher);
         return this;
-    }
-
-    private static void match(Object value, String path, Matcher<?> matcher) {
-        Node node = getNode(value, path);
-        assertThat("Node \"" + path + "\" does not match.", node.getValue(), (Matcher<? super Object>) matcher);
     }
 
 
     /**
      * Array assertions
      */
-    public class ArrayAssert {
-        private final List<Node> array;
+    public static class ArrayAssert {
+        private final InternalMatcher.ArrayMatcher arrayMatcher;
 
-        public ArrayAssert(Iterator<Node> array) {
-            List<Node> list = new ArrayList<Node>();
-            while (array.hasNext()) {
-                list.add(array.next());
-            }
-            this.array = list;
+        ArrayAssert(InternalMatcher.ArrayMatcher arrayMatcher) {
+            this.arrayMatcher = arrayMatcher;
         }
 
         /**
@@ -397,82 +234,147 @@ public class JsonFluentAssert {
          * @return
          */
         public ArrayAssert ofLength(int expectedLength) {
-            if (array.size() != expectedLength) {
-                failWithMessage("Node \"" + path + "\" has invalid length, expected: <" + array.size() + "> but was: <" + expectedLength + ">.");
-            }
+            arrayMatcher.ofLength(expectedLength);
             return this;
         }
 
         public ArrayAssert thatContains(Object expected) {
-
-            for (Node node : array) {
-                Diff diff = create(expected, node, ACTUAL, "", configuration);
-                if (diff.similar()) {
-                    return this;
-                }
-            }
-
-            failWithMessage("Node \"" + path + "\" is '" + array.toString() + "', expected to contain '" + expected +  "'.");
-            // unfortunately I can't think of a better solution to make this compile
+            arrayMatcher.thatContains(expected);
             return this;
         }
+
+        public ArrayAssert isEmpty() {
+            arrayMatcher.isEmpty();
+            return this;
+        }
+
+        public ArrayAssert isNotEmpty() {
+            arrayMatcher.isNotEmpty();
+            return this;
+        }
+
     }
 
+
     /**
-     * JsonFluentAssert after assertion. It does not make much sense to call some of the methods
-     * after assertion so this class deprecates them. It's hard to fix bad API design, isEqual method should have
-     * returned void.
+     * JsonFluentAssert that can be configured. To make sure that configuration is done before comparison and not after.
      */
-    public static class JsonFluentAssertAfterAssertion extends JsonFluentAssert {
-        private static JsonFluentAssertAfterAssertion wrap(JsonFluentAssert assertion) {
-            if (assertion instanceof JsonFluentAssertAfterAssertion) {
-                return (JsonFluentAssertAfterAssertion)assertion;
-            } else {
-                return new JsonFluentAssertAfterAssertion(assertion.actual, assertion.path, assertion.description, assertion.configuration);
-            }
+    public static class ConfigurableJsonFluentAssert extends JsonFluentAssert {
+        private ConfigurableJsonFluentAssert(InternalMatcher internalMatcher) {
+            super(internalMatcher);
         }
 
-        private JsonFluentAssertAfterAssertion(Object actual, String path, String description, Configuration configuration) {
-            super(actual, path, description, configuration);
+        private ConfigurableJsonFluentAssert(Object actual, String pathPrefix) {
+            super(actual, pathPrefix);
         }
 
         /**
-         * This method should be called before assertion.
+         * Creates an assert object that only compares given node.
+         * The path is denoted by JSON path, for example. Second call navigates from the root.
+         *
+         * <code>
+         * assertThatJson("{\"root\":{\"test\":[1,2,3]}}").node("root.test[0]").isEqualTo("1");
+         * </code>
+         *
+         * @param newPath
+         * @return object comparing only node given by path.
          */
-        @Override
-        @Deprecated
-        public JsonFluentAssert when(Option firstOption, Option... otherOptions) {
-            return super.when(firstOption, otherOptions);
+        public ConfigurableJsonFluentAssert node(String newPath) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.node(newPath));
         }
 
-
         /**
-         * This method should be called before assertion.
+         * Makes JsonUnit ignore the specified paths in the actual value. If the path matches,
+         * it's completely ignored. It may be missing, null or have any value
          */
-        @Override
-        @Deprecated
-        public JsonFluentAssert withTolerance(double tolerance) {
-            return super.withTolerance(tolerance);
+        public ConfigurableJsonFluentAssert whenIgnoringPaths(String... pathsToBeIgnored) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.whenIgnoringPaths(pathsToBeIgnored));
         }
 
         /**
-         * This method should be called before assertion.
+         * Sets the description of this object.
+         *
+         * @param description
+         * @return
          */
-        @Override
-        @Deprecated
-        public JsonFluentAssert withTolerance(BigDecimal tolerance) {
-            return super.withTolerance(tolerance);
+        public ConfigurableJsonFluentAssert as(String description) {
+            return describedAs(description);
         }
 
         /**
-         * This method should be called before assertion.
+         * Sets the description of this object.
+         *
+         * @param description
+         * @return
+         */
+        public ConfigurableJsonFluentAssert describedAs(String description) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.describedAs(description));
+        }
+
+        /**
+         * Sets the placeholder that can be used to ignore values.
+         * The default value is ${json-unit.ignore}
+         *
          * @param ignorePlaceholder
          * @return
          */
-        @Override
-        @Deprecated
-        public JsonFluentAssert ignoring(String ignorePlaceholder) {
-            return super.ignoring(ignorePlaceholder);
+        public ConfigurableJsonFluentAssert ignoring(String ignorePlaceholder) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.withIgnorePlaceholder(ignorePlaceholder));
+        }
+
+        /**
+         * Sets the tolerance for floating number comparison. If set to null, requires exact match of the values.
+         * For example, if set to 0.01, ignores all differences lower than 0.01, so 1 and 0.9999 are considered equal.
+         *
+         * @param tolerance
+         */
+        public ConfigurableJsonFluentAssert withTolerance(double tolerance) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.withTolerance(tolerance));
+        }
+
+        /**
+         * Sets the tolerance for floating number comparison. If set to null, requires exact match of the values.
+         * For example, if set to 0.01, ignores all differences lower than 0.01, so 1 and 0.9999 are considered equal.
+         *
+         * @param tolerance
+         */
+        public ConfigurableJsonFluentAssert withTolerance(BigDecimal tolerance) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.withTolerance(tolerance));
+        }
+
+
+        /**
+         * Adds a internalMatcher to be used in ${json-unit.matches:matcherName} macro.
+         */
+        public ConfigurableJsonFluentAssert withMatcher(String matcherName, Matcher<?> matcher) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.withMatcher(matcherName, matcher));
+        }
+
+        public ConfigurableJsonFluentAssert withDifferenceListener(DifferenceListener differenceListener) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.withDifferenceListener(differenceListener));
+        }
+
+        /**
+         * Sets options changing comparison behavior. This method has to be called
+         * <b>before</b> assertion.
+         * For more info see {@link net.javacrumbs.jsonunit.core.Option}
+         *
+         * @param firstOption
+         * @param otherOptions
+         * @see net.javacrumbs.jsonunit.core.Option
+         */
+        public ConfigurableJsonFluentAssert when(Option firstOption, Option... otherOptions) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.withOptions(firstOption, otherOptions));
+        }
+
+        /**
+         * Sets advanced/local options. This method has to be called <b>before</b> assertion.
+         * For more information see {@link Configuration#when(PathsParam, ApplicableForPath...)}
+         *
+         * @see Configuration#when(ConfigurationWhen.PathsParam, ApplicableForPath...)
+         */
+        public final ConfigurableJsonFluentAssert when(PathsParam object, ApplicableForPath... actions) {
+            return new ConfigurableJsonFluentAssert(internalMatcher.when(object, actions));
         }
     }
 }

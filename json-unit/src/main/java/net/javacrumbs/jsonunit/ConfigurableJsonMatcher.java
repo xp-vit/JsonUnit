@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,13 @@
  */
 package net.javacrumbs.jsonunit;
 
+import net.javacrumbs.jsonunit.core.Configuration;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen.ApplicableForPath;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen.PathsParam;
 import net.javacrumbs.jsonunit.core.Option;
 import net.javacrumbs.jsonunit.core.internal.Options;
+import net.javacrumbs.jsonunit.core.listener.DifferenceListener;
 import org.hamcrest.Matcher;
 
 import java.math.BigDecimal;
@@ -58,4 +63,16 @@ public interface ConfigurableJsonMatcher<T> extends Matcher<T> {
      * Sets paths to be ignored.
      */
     ConfigurableJsonMatcher<T> whenIgnoringPaths(String... paths);
+
+    /**
+     * Sets DifferenceListener.
+     */
+    ConfigurableJsonMatcher<T> withDifferenceListener(DifferenceListener differenceListener);
+
+    /**
+     * Sets specific path options.
+     *
+     * @see Configuration#when(PathsParam, ApplicableForPath...)
+     */
+   ConfigurableJsonMatcher<T> when(PathsParam object, ApplicableForPath... actions);
 }

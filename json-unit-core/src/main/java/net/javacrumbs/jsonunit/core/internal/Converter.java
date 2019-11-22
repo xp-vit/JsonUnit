@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,6 @@ class Converter {
 
     private final List<NodeFactory> factories;
 
-    private static final boolean jackson1Present =
-        isClassPresent("org.codehaus.jackson.map.ObjectMapper") &&
-            isClassPresent("org.codehaus.jackson.JsonGenerator");
-
     private static final boolean jackson2Present =
         isClassPresent("com.fasterxml.jackson.databind.ObjectMapper") &&
             isClassPresent("com.fasterxml.jackson.core.JsonGenerator");
@@ -44,6 +40,9 @@ class Converter {
 
     private static final boolean moshiPresent =
         isClassPresent("com.squareup.moshi.Moshi");
+
+    private static final boolean johnzonPresent =
+        isClassPresent("org.apache.johnzon.mapper.Mapper");
 
     Converter(List<NodeFactory> factories) {
         if (factories.isEmpty()) {
@@ -66,25 +65,26 @@ class Converter {
         }
 
         if (factories.isEmpty()) {
-            throw new IllegalStateException("Please add either json.org, Jackson 1.x, Jackson 2.x or Gson to the classpath");
+            throw new IllegalStateException("Please add either json.org, Jackson 1.x, Jackson 2.x, Johnzon or Gson to the classpath");
         }
         return new Converter(factories);
     }
 
     private static List<NodeFactory> createFactoriesSpecifiedInProperty(String property) {
-        List<NodeFactory> factories = new ArrayList<NodeFactory>();
+        List<NodeFactory> factories = new ArrayList<>();
         for (String factoryName : property.toLowerCase().split(",")) {
             factoryName = factoryName.trim();
             if ("moshi".equals(factoryName)) {
                 factories.add(new MoshiNodeFactory());
             } else if ("json.org".equals(factoryName)) {
                 factories.add(new JsonOrgNodeFactory());
-            } else if ("jackson1".equals(factoryName)) {
-                factories.add(new Jackson1NodeFactory());
             } else if ("jackson2".equals(factoryName)) {
                 factories.add(new Jackson2NodeFactory());
             } else if ("gson".equals(factoryName)) {
                 factories.add(new GsonNodeFactory());
+            } else if ("johnzon".equals(factoryName)) {
+                factories.add(new JohnzonNodeFactory());
+
             } else {
                 throw new IllegalArgumentException("'" +factoryName + "' library name not recognized.");
             }
@@ -93,17 +93,17 @@ class Converter {
     }
 
     private static List<NodeFactory> createDefaultFactories() {
-        List<NodeFactory> factories = new ArrayList<NodeFactory>();
+        List<NodeFactory> factories = new ArrayList<>();
         if (moshiPresent) {
             factories.add(new MoshiNodeFactory());
         }
 
-        if (jsonOrgPresent) {
-            factories.add(new JsonOrgNodeFactory());
+        if (johnzonPresent) {
+            factories.add(new JohnzonNodeFactory());
         }
 
-        if (jackson1Present) {
-            factories.add(new Jackson1NodeFactory());
+        if (jsonOrgPresent) {
+            factories.add(new JsonOrgNodeFactory());
         }
 
         if (gsonPresent) {
@@ -121,6 +121,16 @@ class Converter {
             NodeFactory factory = factories.get(i);
             if (isLastFactory(i) || factory.isPreferredFor(source)) {
                 return factory.convertToNode(source, label, lenient);
+            }
+        }
+        throw new IllegalStateException("Should not happen");
+    }
+
+    Node valueToNode(Object source) {
+        for (int i = 0; i < factories.size(); i++) {
+            NodeFactory factory = factories.get(i);
+            if (isLastFactory(i) || factory.isPreferredFor(source)) {
+                return factory.valueToNode(source);
             }
         }
         throw new IllegalStateException("Should not happen");

@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
 package net.javacrumbs.jsonunit;
 
 import net.javacrumbs.jsonunit.core.Configuration;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen.ApplicableForPath;
+import net.javacrumbs.jsonunit.core.ConfigurationWhen.PathsParam;
 import net.javacrumbs.jsonunit.core.Option;
 import net.javacrumbs.jsonunit.core.internal.Diff;
 import net.javacrumbs.jsonunit.core.internal.Options;
+import net.javacrumbs.jsonunit.core.listener.DifferenceListener;
 import org.hamcrest.Matcher;
 
 import java.math.BigDecimal;
@@ -78,9 +81,7 @@ public class JsonAssert {
      */
     public static void assertJsonPartEquals(Object expected, Object fullJson, String path, Configuration configuration) {
         Diff diff = create(expected, fullJson, FULL_JSON, path, configuration);
-        if (!diff.similar()) {
-            doFail(diff.toString());
-        }
+        diff.failIfDifferent();
     }
 
     /**
@@ -129,9 +130,7 @@ public class JsonAssert {
     @Deprecated
     public static void assertJsonStructureEquals(Object expected, Object actual) {
         Diff diff = create(expected, actual, ACTUAL, ROOT, configuration.withOptions(COMPARING_ONLY_STRUCTURE));
-        if (!diff.similar()) {
-            doFail(diff.differences());
-        }
+        diff.failIfDifferent();
     }
 
     /**
@@ -143,9 +142,7 @@ public class JsonAssert {
     @Deprecated
     public static void assertJsonPartStructureEquals(Object expected, Object fullJson, String path) {
         Diff diff = create(expected, fullJson, FULL_JSON, path, configuration.withOptions(COMPARING_ONLY_STRUCTURE));
-        if (!diff.similar()) {
-            doFail(diff.differences());
-        }
+        diff.failIfDifferent();
     }
 
     /**
@@ -228,6 +225,17 @@ public class JsonAssert {
     }
 
     /**
+     * Sets listener to customize diff format
+     */
+    public static void setDifferenceListener(DifferenceListener listener) {
+        configuration = configuration.withDifferenceListener(listener);
+    }
+
+    public static DifferenceListener getDifferenceListener() {
+        return configuration.getDifferenceListener();
+    }
+
+    /**
      * Sets options changing comparison behavior. For more
      * details see {@link net.javacrumbs.jsonunit.core.Option}
      *
@@ -281,5 +289,21 @@ public class JsonAssert {
      */
     public static Configuration whenIgnoringPaths(String... paths) {
         return Configuration.empty().whenIgnoringPaths(paths);
+    }
+
+    /**
+     * Creates an empty configuration with specific path options.
+     *
+     * @see Configuration#when(PathsParam, ApplicableForPath...)
+     */
+    public static Configuration when(PathsParam subject, ApplicableForPath... actions) {
+        return Configuration.empty().when(subject, actions);
+    }
+
+    /**
+     * Sets DifferenceListener.
+     */
+    public static Configuration withDifferenceListener(DifferenceListener differenceListener) {
+        return Configuration.empty().withDifferenceListener(differenceListener);
     }
 }

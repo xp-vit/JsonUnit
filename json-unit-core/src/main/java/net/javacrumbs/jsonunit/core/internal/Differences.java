@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2017 the original author or authors.
+ * Copyright 2009-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,31 +22,20 @@ import java.util.List;
  * List of differences
  */
 class Differences {
-
-    private final List<String> messages = new ArrayList<String>();
+    private final List<JsonDifference> differences = new ArrayList<>();
 
     Differences() {
     }
 
-    public void add(String message, Object... args) {
-        add(String.format(message, args));
-    }
-
-    private void add(String message) {
-        messages.add(message);
+    void add(JsonDifference jsonDifference) {
+        differences.add(jsonDifference);
     }
 
     boolean isEmpty() {
-        return messages.isEmpty();
+        return differences.isEmpty();
     }
 
-    void appendDifferences(StringBuilder builder) {
-        if (!messages.isEmpty()) {
-            builder.append("JSON documents are different:\n");
-            for (String message : messages) {
-                builder.append(message).append("\n");
-            }
-        }
+    List<JsonDifference> getDifferences() {
+        return differences;
     }
-
 }
